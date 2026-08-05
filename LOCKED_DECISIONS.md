@@ -1,6 +1,6 @@
 # CS 5800 Final Project — Locked Decisions（团队事实基准）
  
-> 本文件是项目的 single source of truth，与已提交的 proposal 定稿一致。
+> 本文件是项目的 single source of truth，与已被批准的 [Final_Project_Proposal.md](Final_Project_Proposal.md) 定稿一致。
 > 任何对话若与本文件冲突，以本文件为准。此文件**取代**任何更早的对齐文档（早期文档里的 "sort + bucket"、balance-first 优先顺序等均已作废）。
  
 ---
@@ -90,3 +90,9 @@
 ## 8. 语言约定
  
 默认中文。专业名词（CS / math / data / 本项目 strategy）以英文为主词，首次括注中文；不把术语翻成中文当主词。
+
+---
+
+## 9. 参考文献
+
+- [Final_Project_Proposal.md](Final_Project_Proposal.md) (已获批准的项目提案)
