@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# AI 聊天记录 / agent scratch（别进 repo，太吵）
+.agents/artifacts/
+*.chatlog
+ai-notes/
+
+# OS
+.DS_Store
+Thumbs.db
