@@ -5,7 +5,8 @@
 ## 事实源（source of truth）
 - 本项目唯一事实源是 @LOCKED_DECISIONS.md，一切以它为准；与它冲突时以它为准并指出冲突。
 - 不要凭训练知识猜项目决定，先读 @LOCKED_DECISIONS.md。
-- 已被批准的项目提案见 [Final_Project_Proposal.md](Final_Project_Proposal.md)，可作为设计与论证的参考文献。
+- 已被批准的项目提案见 [Final_Project_Proposal.md](Final_Project_Proposal_submitted.md).因为是已经提交且被批准的提案,所以后续的安排和设计都尽量不要与之冲突,如果必须冲突的话,也要警告⚠️冲突点.
+- [Final project proposal requirement](Final project proposal requirement.md)是老师对本次项目的要求
 
 ## Scope 护栏（以下是有意排除的，不要主动建议）
 - 不建议 Hungarian / Munkres / min-cost-flow / ILP（weighted 版本，已排除）。

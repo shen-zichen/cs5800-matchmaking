@@ -1,6 +1,6 @@
 # CS 5800 Final Project — Locked Decisions（团队事实基准）
  
-> 本文件是项目的 single source of truth，与已被批准的 [Final_Project_Proposal.md](Final_Project_Proposal.md) 定稿一致。
+> 本文件是项目的 single source of truth，与已被批准的 [Final_Project_Proposal.md](Final_Project_Proposal_submitted.md) 定稿一致。
 > 任何对话若与本文件冲突，以本文件为准。此文件**取代**任何更早的对齐文档（早期文档里的 "sort + bucket"、balance-first 优先顺序等均已作废）。
  
 ---
@@ -74,8 +74,8 @@
 ## 6. 关键数字
  
 - match size：**10**（5 lane × 2）。
-- lane-first 的红蓝分法：$2^5 = 32$（role-valid）。
-- balance-first 的 partition：**126** distinct splits（$\binom{10}{5}/2$；带红蓝标签是 252）。
+- lane-first 的红蓝分法：`2^5 = 32`（role-valid）。
+- balance-first 的 partition：**126** distinct splits（`C(10,5)/2`；带红蓝标签是 252）。
 - "无 autofill 的干净切法"占比下界 ≈ 12.7%（32/252，worst case，假设玩家锁死单路；实际随 preference diversity 上升）。
 ---
  
@@ -95,4 +95,4 @@
 
 ## 9. 参考文献
 
-- [Final_Project_Proposal.md](Final_Project_Proposal.md) (已获批准的项目提案)
+- [Final_Project_Proposal.md](Final_Project_Proposal_submitted.md) (已获批准的项目提案)
