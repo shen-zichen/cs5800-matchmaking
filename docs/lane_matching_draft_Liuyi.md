@@ -168,8 +168,11 @@ def bfs_find_path(matching_graph, s, t):
 根据输入的玩家列表和分路容量上限，构建包含 `s`、`players`、`lanes` 和 `t` 的匹配流网络图。
 
 ```python
-# 定义 5 个标准分路统一常量列表
-ALL_LANES = ["TOP", "JUG", "MID", "ADC", "SUP"]
+# 从 code/models.py 导入核心数据模型
+from code.models import Lane, Player
+
+# 定义 5 个标准分路统一常量列表 (从 Lane 枚举自动派生)
+ALL_LANES = [lane.value for lane in Lane]
 
 def build_matching_graph(players, lane_capacity=1):
     """
@@ -183,10 +186,14 @@ def build_matching_graph(players, lane_capacity=1):
     for p in players:
         matching_graph.add_edge(s, p.id, cap=1)
 
-    # 2. 连玩家到偏好分路 (主选与次选容量均为 1)
+    # 2. 连玩家到偏好分路 (主选必有，次选可选；容量均为 1)
     for p in players:
         matching_graph.add_edge(p.id, p.pref_primary.value, cap=1)
-        matching_graph.add_edge(p.id, p.pref_secondary.value, cap=1)
+        # 防御性校验与日志提示：处理未指定次选分路 (None) 的玩家
+        if p.pref_secondary is not None:
+            matching_graph.add_edge(p.id, p.pref_secondary.value, cap=1)
+        else:
+            print(f"[Info] 玩家 {p.id} 未指定次选分路 (pref_secondary is None)，仅连主选分路边。")
 
     # 3. 连 5 个分路到 Sink 't' (容量为 lane_capacity: 5人队为 1，10人池为 2)
     for lane_name in ALL_LANES:
@@ -244,7 +251,7 @@ def solve_lane_matching(players, lane_capacity=1):
         )
         if matched_lane:
             matching[p.id] = matched_lane
-            p.assigned_lane = matched_lane
+            p.assigned_lane = Lane(matched_lane)  # 统一赋值为 Lane Enum 对象
             p.is_autofilled = False
             lane_counts[matched_lane] += 1
         else:
@@ -277,7 +284,7 @@ def handle_autofill(unmatched_players, matching, lane_counts, lane_capacity):
         # 使用 next() 直接获取第一个尚未达到容量上限的可用分路 (无需使用 break)
         open_lane = next(lane_name for lane_name in ALL_LANES if lane_counts[lane_name] < lane_capacity)
         matching[p.id] = open_lane
-        p.assigned_lane = open_lane
+        p.assigned_lane = Lane(open_lane)  # 统一赋值为 Lane Enum 对象
         p.is_autofilled = True
         lane_counts[open_lane] += 1
 ```

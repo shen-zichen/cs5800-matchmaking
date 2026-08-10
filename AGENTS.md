@@ -26,6 +26,7 @@
 
 ## Git 纪律
 - 小 commit，每次 review diff，绝不 Accept All。
+- 不要私自commit.每次commit之前先发消息确认summary和description,批准之后再推进
 
 ## 公式与 LaTeX 输出格式限制（防 UI 崩溃刷新/闪现）
 - **原因**：有些 IDE 的 Webview 在解析流式未闭合的 `$ ... $` 或 `\( ... \)` 符号时，会触发 DOM 渲染报错导致界面 3~5 秒自动刷新/闪现。
