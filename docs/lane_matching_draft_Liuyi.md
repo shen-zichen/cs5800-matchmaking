@@ -308,12 +308,16 @@ def get_autofill_count(players, lane_capacity=1) -> int:
     return autofill_count
 
 
+import copy
+
 def get_max_flow_count(players, lane_capacity=1) -> int:
     """
     API 接口：仅获取 Max-Flow 成功匹配偏好的总人数 (用于可行性检查)
+    内部使用 copy.deepcopy 隔离副作用，避免在纯 feasibility check 时污染原 Player 对象状态。
     返回: max_flow_count (int)
     """
-    _, _, max_flow_count = solve_lane_matching(players, lane_capacity)
+    players_copy = copy.deepcopy(players)
+    _, _, max_flow_count = solve_lane_matching(players_copy, lane_capacity)
     return max_flow_count
 
 

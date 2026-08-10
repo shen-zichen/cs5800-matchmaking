@@ -55,7 +55,7 @@ get_matching(players, lane_capacity=1) -> Dict[str, str]
 # 2. 只要补位缺口人数
 get_autofill_count(players, lane_capacity=1) -> int
 
-# 3. 只要 Max-Flow 流量数值 (如 Stage 1 Pooling 校验 10 人池可行性)
+# 3. 只要 Max-Flow 流量数值 (如 Stage 1 Pooling 校验 10 人池可行性；内部自动使用 copy.deepcopy 隔离副作用，不残留污染状态)
 get_max_flow_count(players, lane_capacity=1) -> int
 
 # 4. 要匹配结果字典 + 补位人数
