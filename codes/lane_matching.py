@@ -12,13 +12,15 @@ CS 5800 期末项目：MOBA Matchmaking — 分路匹配模块 (Lane Matching En
 """
 
 import copy
+import os
+import sys
 from collections import deque
 from typing import List, Dict, Tuple, Optional
 
-try:
-    from code.models import Lane, Player
-except ModuleNotFoundError:
-    from models import Lane, Player
+# 确保项目根目录在 sys.path 中，支持从任何目录直接执行该脚本
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from codes.models import Lane, Player
 
 # 定义 5 个标准分路统一常量列表 (从 Lane 枚举自动派生)
 ALL_LANES = [lane.value for lane in Lane]
@@ -30,7 +32,7 @@ class MatchingGraph:
     使用 self.edge_dict[u][v] = [cap, flow, is_original] 存储边信息
     """
     def __init__(self):
-        self.edge_dict = {}
+        self.edge_dict: Dict[str, Dict[str, list]] = {}
 
     def add_node(self, u: str):
         if u not in self.edge_dict:
@@ -76,7 +78,7 @@ def reconstruct_path(parent: Dict[str, Optional[str]], s: str, t: str) -> List[s
     返回重构后的路径列表，例如 ['s', 'P1', 'TOP', 't']
     """
     path = []
-    curr = t
+    curr: Optional[str] = t
     
     # 只要当前节点不是 None，就一直往上找父节点
     while curr is not None:
@@ -95,7 +97,7 @@ def update_flow_along_path(path: List[str], graph: MatchingGraph) -> int:
     返回：本次增加的流量值 (在二分匹配中等于 1)
     """
     # 1. 遍历路径上每对相邻节点 (u, v)，找出最小的剩余残量 (bottleneck)
-    bottleneck = float('inf')
+    bottleneck: int = 999999
     for i in range(len(path) - 1):
         u = path[i]
         v = path[i + 1]
@@ -117,14 +119,14 @@ def bfs_find_path(matching_graph: MatchingGraph, s: str, t: str) -> Optional[Dic
     返回 parent 字典；若找不到从 s 到 t 的有效通路，返回 None
     """
     # 记录每个节点的父节点 (带路人)，起点 s 的父节点为 None
-    parent = {s: None}
+    parent: Dict[str, Optional[str]] = {s: None}
     queue = deque([s])
     
     # 当队列非空且尚未摸到汇点 t 时持续搜图
     while queue and t not in parent:
         curr = queue.popleft()
         
-        # 遍历 curr 的所有邻居节点 nxt
+        # 遍历 curr 的所有邻居节点 nxt 
         for nxt in matching_graph.get_neighbors(curr):
             # 校验 1: 残量容量必须大于 0 (可以继续流水或退水)
             # 校验 2: nxt 还没有被访问过 (防止死循环走回头路)
