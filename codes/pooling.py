@@ -1,6 +1,6 @@
 from typing import List, Optional
-from models import Player, Pool
-from lane_matching import get_max_flow_count
+from codes.models import Player, Pool
+from codes.lane_matching import get_max_flow_count
 
 
 def find_pool(players: List[Player], pool_size: int = 10) -> Optional[Pool]:
