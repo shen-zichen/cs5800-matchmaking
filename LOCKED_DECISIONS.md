@@ -97,6 +97,7 @@
 - lane-first 的红蓝分法：`2^5 = 32`（role-valid）。
 - balance-first 的 partition：**126** distinct splits（`C(10,5)/2`；带红蓝标签是 252）。
 - "无 autofill 的干净切法"占比下界 ≈ 12.7%（32/252，worst case，假设玩家锁死单路；实际随 preference diversity 上升）。
+- **gap 统一定义**：`mmr_gap = abs(team_a MMR 总和 − team_b MMR 总和) / 每队人数(5)`。两条 pipeline（lane-first / balance-first）**必须用同一口径**，且一律**先减后除**（先做整数减法再除 5），**不可先除后减**——先除后减会引入浮点舍入误差（实测大量 MMR 组合会得到 `0.2000...004` 这类带尾巴的值），破坏两条 pipeline gap 的逐-bit 可比性。
 
 ---
 
@@ -128,3 +129,5 @@
   - §1 / §2：修正执行顺序描述——原"先 match 保证每队 role-feasible"仅适用于 lane-first，改为按两种 ordering 分别说明（lane-first 先 match、balance-first 先 partition）。
   - §4：新增"所有玩家 primary + secondary 必填、不建模付费单选特权"为 out-of-scope 约定（统一 HoK / LoL 输入假设）。
   - §4：新增注记——当前"primary 优先"为 BFS 顺序副作用、非结构保证，列为 paper 声称前的待办项。
+- **2026-08-11**：
+  - §6：新增 **gap 统一定义**（`abs(sum_a − sum_b) / 5`，先减后除），锁死两条 pipeline 的 gap 口径与浮点精度，防止先除后减引入的舍入误差破坏可比性。
