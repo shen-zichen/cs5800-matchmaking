@@ -1,12 +1,12 @@
-# Introduction
+# 1. Introduction
 
-## Context
+## 1.1 Context
 
-## Problem Statement
+## 1.2 Problem Statement
 
-# Method
+# 2. Method
 
-## Pooling (Stage 1)
+## 2.1 Pooling (Stage 1)
 
 ## Lane Matching (Stage 2)
 
