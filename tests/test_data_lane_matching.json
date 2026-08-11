@@ -1,0 +1,94 @@
+{
+  "test_case_1_perfect_5": [
+    {"id": "P1", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
+    {"id": "P2", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "MID"},
+    {"id": "P3", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "ADC"},
+    {"id": "P4", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "SUP"},
+    {"id": "P5", "mmr": 1500, "pref_primary": "SUP", "pref_secondary": "TOP"}
+  ],
+  "test_case_2_conflict_5": [
+    {"id": "P1", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "TOP"},
+    {"id": "P2", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "TOP"},
+    {"id": "P3", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "TOP"},
+    {"id": "P4", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "JUG"},
+    {"id": "P5", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "JUG"}
+  ],
+  "test_case_3_feasible_10": [
+    {"id": "P01", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
+    {"id": "P02", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "MID"},
+    {"id": "P03", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "MID"},
+    {"id": "P04", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "ADC"},
+    {"id": "P05", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "ADC"},
+    {"id": "P06", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "SUP"},
+    {"id": "P07", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "SUP"},
+    {"id": "P08", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "TOP"},
+    {"id": "P09", "mmr": 1500, "pref_primary": "SUP", "pref_secondary": "TOP"},
+    {"id": "P10", "mmr": 1500, "pref_primary": "SUP", "pref_secondary": "JUG"}
+  ],
+  "test_case_4_infeasible_10": [
+    {"id": "P01", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P02", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P03", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P04", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P05", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P06", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P07", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P08", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P09", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "ADC"},
+    {"id": "P10", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "JUG"}
+  ],
+  "test_case_5_window_infeasible": [
+    {"id": "P01", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
+    {"id": "P02", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
+    {"id": "P03", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
+    {"id": "P04", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "MID"},
+    {"id": "P05", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "MID"},
+    {"id": "P06", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "ADC"},
+    {"id": "P07", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "ADC"},
+    {"id": "P08", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "TOP"},
+    {"id": "P09", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "TOP"},
+    {"id": "P10", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"}
+  ],
+  "test_case_5_window_feasible": [
+    {"id": "P01", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
+    {"id": "P02", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
+    {"id": "P03", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "MID"},
+    {"id": "P04", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "MID"},
+    {"id": "P05", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "ADC"},
+    {"id": "P06", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "ADC"},
+    {"id": "P07", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "SUP"},
+    {"id": "P08", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": "SUP"},
+    {"id": "P09", "mmr": 1500, "pref_primary": "SUP", "pref_secondary": "TOP"},
+    {"id": "P10", "mmr": 1500, "pref_primary": "SUP", "pref_secondary": "TOP"}
+  ],
+  "test_case_6_single_pref": [
+    {"id": "P1", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": null},
+    {"id": "P2", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": null},
+    {"id": "P3", "mmr": 1500, "pref_primary": "MID", "pref_secondary": null},
+    {"id": "P4", "mmr": 1500, "pref_primary": "ADC", "pref_secondary": null},
+    {"id": "P5", "mmr": 1500, "pref_primary": "SUP", "pref_secondary": null}
+  ],
+  "test_case_autofill_5v5_single_team": [
+    {"id": "P1", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "TOP"},
+    {"id": "P2", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "TOP"},
+    {"id": "P3", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "TOP"},
+    {"id": "P4", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "ADC"},
+    {"id": "P5", "mmr": 1500, "pref_primary": "JUG", "pref_secondary": "ADC"}
+  ],
+  "test_case_autofill_5v5_dual_team_match": {
+    "team_red": [
+      {"id": "R1", "mmr": 1520, "pref_primary": "TOP", "pref_secondary": "MID"},
+      {"id": "R2", "mmr": 1510, "pref_primary": "TOP", "pref_secondary": "MID"},
+      {"id": "R3", "mmr": 1500, "pref_primary": "MID", "pref_secondary": "JUG"},
+      {"id": "R4", "mmr": 1490, "pref_primary": "JUG", "pref_secondary": "ADC"},
+      {"id": "R5", "mmr": 1480, "pref_primary": "ADC", "pref_secondary": "JUG"}
+    ],
+    "team_blue": [
+      {"id": "B1", "mmr": 1520, "pref_primary": "SUP", "pref_secondary": "TOP"},
+      {"id": "B2", "mmr": 1510, "pref_primary": "SUP", "pref_secondary": "TOP"},
+      {"id": "B3", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "MID"},
+      {"id": "B4", "mmr": 1490, "pref_primary": "MID", "pref_secondary": "JUG"},
+      {"id": "B5", "mmr": 1480, "pref_primary": "JUG", "pref_secondary": "TOP"}
+    ]
+  }
+}
