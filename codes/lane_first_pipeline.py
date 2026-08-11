@@ -6,6 +6,7 @@ CS 5800 期末项目：MOBA Matchmaking — Lane-First 端到端流水线 (Lane-
 再在 2^5 = 32 种角色合规拆分中寻找两队 MMR Gap 最小的 5v5 对局组合。
 """
 
+import copy
 import itertools
 from typing import List, Union, Dict
 from codes.models import Lane, Player, Pool, Team, Match
@@ -56,8 +57,9 @@ def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
             total_autofill=0
         )
     """
-    # 转译/解析数据
-    players = convert_data_to_players(pool_input)
+    # 转译/解析数据并进行深拷贝，防止污染主调方的原始 Pool 实例
+    raw_players = convert_data_to_players(pool_input)
+    players = copy.deepcopy(raw_players)
 
     # 1. 跑 capacity=2 的 Max-Flow 分路匹配
     matching, autofill_count, max_flow = solve_lane_matching(players, lane_capacity=2)
@@ -109,10 +111,10 @@ def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
                 blue_players.append(p1)
                 blue_map[lane] = p1
 
-        # 计算两队 MMR gap
-        red_avg_mmr = sum(p.mmr for p in red_players) / 5.0
-        blue_avg_mmr = sum(p.mmr for p in blue_players) / 5.0
-        gap = abs(red_avg_mmr - blue_avg_mmr)
+        # 计算两队 MMR gap 
+        red_sum_mmr = sum(p.mmr for p in red_players)
+        blue_sum_mmr = sum(p.mmr for p in blue_players)
+        gap = abs(red_sum_mmr - blue_sum_mmr) / 5.0
 
         if gap < best_gap:
             best_gap = gap
