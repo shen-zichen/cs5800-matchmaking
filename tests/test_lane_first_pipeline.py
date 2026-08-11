@@ -63,6 +63,7 @@ def print_match_summary(match: Match):
 
 def test_run_lane_first_with_dict_list():
     """测试用 JSON 原始 dict 列表直接运行 run_lane_first (触发 Placeholder 转译)"""
+    print("\n==================== 🚀 Test 1: run_lane_first with dict list input START ====================")
     data = load_test_json()
     raw_10_feasible = data["test_case_3_feasible_10"]
 
@@ -87,22 +88,54 @@ def test_run_lane_first_with_dict_list():
     assert len(red_lanes) == 5
     assert len(blue_lanes) == 5
     assert match_result.mmr_gap >= 0.0
+    print("==================== ✅ Test 1: run_lane_first with dict list input PASSED ====================\n")
 
 
 def test_run_lane_first_with_pool():
     """测试用 Pool 对象运行 run_lane_first"""
+    print("==================== 🚀 Test 2: run_lane_first with Pool object input START ====================")
     data = load_test_json()
     players = convert_data_to_players(data["test_case_3_feasible_10"])
     pool = Pool(players=players)
 
     match_result = run_lane_first(pool)
 
+    # 打印 Match 详细统计结果
+    print(f"📦 Input Pool Size         : {len(pool.players)} players")
+    print(f"📊 Returned Match MMR Gap  : {match_result.mmr_gap:.2f}")
+    print(f"📊 Total Autofill Count    : {match_result.total_autofill}")
+    print(f"🔴 Red Team Players Count  : {len(match_result.team_red.players)}")
+    print(f"🔵 Blue Team Players Count : {len(match_result.team_blue.players)}")
+
     assert isinstance(match_result, Match)
     assert match_result.total_autofill == 0
     assert match_result.team_red.autofill_count == 0
     assert match_result.team_blue.autofill_count == 0
+    print("==================== ✅ Test 2: run_lane_first with Pool object input PASSED ====================\n")
+
+
+def test_does_not_mutate_caller_pool():
+    """测试 run_lane_first 不会修改主调方的原始 Pool / Player 实例"""
+    print("==================== 🚀 Test 3: Anti-Mutation (DeepCopy) Check START ====================")
+    data = load_test_json()
+    players = convert_data_to_players(data["test_case_3_feasible_10"])
+    pool = Pool(players=players)
+
+    print("🔍 Calling run_lane_first(pool)...")
+    run_lane_first(pool)
+
+    print("🔍 Verifying original Pool player objects in caller's scope:")
+    for p in pool.players:
+        print(f"   • Player '{p.id:<4}': assigned_lane={p.assigned_lane} | is_autofilled={p.is_autofilled}")
+        assert p.assigned_lane is None
+        assert p.is_autofilled is None
+
+    print("✅ Verified 10/10 original players: all assigned_lane == None and is_autofilled == None!")
+    print("==================== ✅ Test 3: Anti-Mutation (DeepCopy) Check PASSED ====================\n")
 
 
 if __name__ == "__main__":
     test_run_lane_first_with_dict_list()
     test_run_lane_first_with_pool()
+    test_does_not_mutate_caller_pool()
+    print("==================== 🎉 All Lane-First Pipeline Tests Passed Successfully! ====================")
