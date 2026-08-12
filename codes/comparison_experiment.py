@@ -38,7 +38,7 @@ class TrialResult:
 
 
 def run_one_trial(concentration: float, trial: int,
-                  snapshot_size: int = 50) -> Optional[TrialResult]:
+                  snapshot_size: int = 80) -> Optional[TrialResult]:
     """
     One trial at a given knob setting:
       1. generate a snapshot (seeded by `trial` for reproducibility),
@@ -69,8 +69,8 @@ def run_one_trial(concentration: float, trial: int,
 
 
 def run_experiment(concentrations: Optional[List[float]] = None,
-                   trials_per_setting: int = 100,
-                   snapshot_size: int = 50) -> List[TrialResult]:
+                   trials_per_setting: int = 1000,
+                   snapshot_size: int = 80) -> List[TrialResult]:
     """
     Sweep the knob and collect trials.
 
@@ -83,7 +83,7 @@ def run_experiment(concentrations: Optional[List[float]] = None,
         a flat list of TrialResult (infeasible trials are dropped).
     """
     if concentrations is None:
-        concentrations = [round(0.1 * i, 1) for i in range(11)]  # 0.0..1.0
+        concentrations = [round(0.1 * i, 1) for i in range(8)]  # 0.0..0.7 (>=0.8 too few feasible pools)
 
     results = []
     for conc in concentrations:
@@ -137,7 +137,7 @@ def summarize(results: List[TrialResult]) -> dict:
 
 
 if __name__ == "__main__":
-    results = run_experiment(trials_per_setting=100)
+    results = run_experiment()
     out_path = os.path.join(os.path.dirname(__file__), "..", "results", "comparison.csv")
     write_csv(results, out_path)
 
