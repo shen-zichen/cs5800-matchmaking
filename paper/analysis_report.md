@@ -2,9 +2,75 @@
 
 ## 1.1 Context
 
+Competitive online games in the MOBA genre — _League of Legends_, _Honor of
+Kings_, and their peers — build every match from a live queue of waiting
+players. A 5v5 match needs exactly ten players sorted into two teams of five,
+and each player occupies one of five lanes (TOP, JUG, MID, ADC, SUP). The system
+that assembles these matches is the _matchmaker_, and it must satisfy several
+goals at once: the two teams should be close in skill, so the match is fair;
+players should get to play the lanes they prefer, so the match is enjoyable; and
+all of this must happen fast, on a queue that may hold hundreds of players.
+
+These goals pull against each other. The skill measure — a hidden
+matchmaking rating, or **MMR** — and the lane preferences are independent
+attributes, so the fairest split of ten players by MMR need not be one in which
+everyone plays a preferred lane, and vice versa. Real games resolve this tension
+differently: some protect lane assignments and tolerate skill imbalance, others
+balance skill aggressively and ask players to "flex" off their preferred lane.
+That difference in philosophy is what this report models and measures.
+
 ## 1.2 Problem Statement
 
+We model matchmaking as a three-stage pipeline — **pool**, **match**,
+**balance** — and ask one question: when matching (which serves preference) and
+balancing (which serves fairness) conflict, which should run first? We call the
+two answers _lane-first_ and _balance-first_ and treat them not as right and
+wrong but as two settings of a single fairness–preference tradeoff.
+
+Around that question sits a complexity thesis with two sides. Deciding
+**feasibility** — whether ten players can be assigned to five lanes within their
+preferences — is a polynomial-time problem, solvable as a max-flow. Finding the
+**optimal balance** — the split of a pool into two teams minimizing the skill
+gap — is NP-hard in general. Our matches are nonetheless tractable, but only
+because a match is a fixed, ten-player instance small enough to brute-force; the
+hardness of the general problem and the ease of our instance are independent
+facts, and keeping them distinct is a theme we return to throughout (§2.3.4).
+This report develops the pipeline (§2), specifies the experiments (§3), and
+reports the tradeoff and a scalability check (§4).
+
 # 2 Method
+
+The pipeline operates on four data structures. A **Player** carries an
+identifier, an integer MMR, and a primary and secondary lane preference; two
+fields — an assigned lane and an autofill flag — start empty and are filled in
+by matching. A **Pool** is the compact, ten-player set that Stage 1 extracts
+from a snapshot. A **Team** is five players together with their lane assignment
+and a count of how many were autofilled. A **Match** pairs two teams and records
+the resulting MMR gap and total autofill. The three stages below transform a
+raw snapshot into a Match: pooling produces a Pool (§2.1), lane matching decides
+and produces lane assignments (§2.2), and balancing cuts a pool into two teams
+(§2.3); §2.4 then sets out the two orderings in which matching and balancing can
+be composed.
+
+## 2.0 Scope and Assumptions
+
+The model above is deliberately narrow, and stating its boundaries up front
+keeps the tradeoff we study well-defined. We assume a **static snapshot**: the
+queue is a single fixed set of waiting players, not a stream that arrives and
+departs over time, so we do not model online or dynamic matching. We form a
+**single match** at a time rather than batching several matches from the same
+snapshot jointly. Lane preferences are **unweighted and one-sided** — each
+player simply marks a primary and a secondary lane as acceptable, with no
+numeric strength and no two-sided stability between players and lanes — which is
+what lets us model assignment as an unweighted, capacity-constrained bipartite
+matching rather than a weighted or stable-matching problem. Skill is a **single
+scalar MMR**, not a per-champion or per-role profile. Finally, players queue
+**individually**, so we do not handle pre-formed parties.
+
+These assumptions are not oversights but the choices that pin the problem to the
+specific model we analyze; each of them can be relaxed, and doing so moves the
+problem into a different and generally harder regime, which we return to as
+future work in §5.
 
 ## 2.1 Pooling (Stage 1)
 
@@ -15,7 +81,7 @@ brute-forceable instance: a compact, lane-feasible 10-player pool $P$. We fix
 $|P| = 10$ because a 5v5 match needs exactly ten players, and because holding
 it constant lets the comparison experiment feed the _same_ ten players to
 both orderings — isolating the ordering as the only variable. (The pool size
-is parameterized, not hard-coded, so the scalability analysis in §X can grow
+is parameterized, not hard-coded, so the scalability analysis in §4.2 can grow
 it.)
 
 $P$ must be both **MMR-compact** (so teams can be balanced with a small gap)
@@ -174,16 +240,218 @@ project is solvable only because each match is a small, fixed instance.
 
 ## 2.4 Two Orderings: Lane-first vs Balance-first
 
+The three stages fix _what_ we compute, but not the order in which lane
+matching and balancing run against each other. That ordering is the design
+choice at the heart of this report, because the two stages optimize for
+different things — matching for preference satisfaction, balancing for a small
+MMR gap — and whichever runs first constrains the other. We therefore implement
+both orderings and compare them; neither is "correct," they are two points on
+the fairness–preference tradeoff, each mirroring a real design philosophy.
+
+**Lane-first** matches before it balances. It runs Stage 2 over the entire pool
+at capacity $c = 2$, seating two players in every lane, and then splits those
+already-assigned players into two teams. Because each lane already holds exactly
+two players — one bound for each side — the split is not a free choice over all
+$126$ partitions but a constrained one: for each of the five lanes we decide
+which of its two occupants goes red and which goes blue, giving $2^5 = 32$
+candidate splits. We enumerate them and keep the one with the smallest MMR gap.
+Every player lands in a preferred lane by construction, so **autofill is
+identically zero**; the price is that the gap is only as small as the best of
+those $32$ lane-constrained splits, with no freedom to trade a player's lane for
+a better balance. This is the philosophy of a game that treats role integrity
+as sacrosanct.
+
+**Balance-first** balances before it matches. It runs Stage 3 first — the free
+$126$-partition search of §2.3 — to cut the pool into the two teams with the
+smallest possible gap, ignoring lanes entirely; then it runs Stage 2
+independently within each five-player team at capacity $c = 1$ to assign lanes.
+Because the split is unconstrained, the gap it achieves is at least as small as
+lane-first's, and usually smaller. But a team chosen purely for MMR balance is
+not guaranteed to be lane-feasible on its own: pool-level feasibility (five
+lanes, two each) does not imply that an arbitrary five-player half can staff all
+five lanes from preferences alone. When it cannot, matching backfills the empty
+lanes off-preference, and **autofill becomes positive**. This is the philosophy
+of a game that treats fairness as paramount and asks players to flex.
+
+The asymmetry is the whole story. Lane-first pays for zero autofill with a
+larger, lane-constrained gap; balance-first pays for a minimal gap with nonzero
+autofill. A subtle consequence, which the experiments confirm, is that the two
+orderings respond differently to _preference diversity_: lane-first's gap and
+(zero) autofill are structurally fixed regardless of how concentrated
+preferences are, whereas balance-first's autofill grows as preferences
+concentrate, because concentrated preferences make an MMR-chosen half
+increasingly likely to be lane-infeasible.
+
 # 3 Experiment Setup
 
 ## 3.1 Synthetic Data Generation
 
+Because no public dataset pairs hidden MMR with lane preferences, we generate
+synthetic queue snapshots. Each player carries an MMR drawn uniformly from a
+fixed range and a distinct (primary, secondary) lane-preference pair; MMR and
+preferences are generated independently, since skill and role taste are
+unrelated attributes.
+
+The one experimental knob is **preference concentration** $\gamma \in [0, 1]$,
+which controls how clustered lane preferences are. At $\gamma = 0$ each lane is
+equally likely to be chosen, so preferences spread evenly across the five
+lanes. As $\gamma$ rises, probability mass shifts onto a fixed pair of "hot"
+lanes (MID and ADC, standing in for the carry roles players contest in
+practice) and away from the "cold" lanes, until at $\gamma = 1$ the hot lanes
+absorb all of it. Concretely, each lane's base probability $1/5$ is redirected
+toward the hot lanes in proportion to $\gamma$, keeping the five weights a valid
+distribution. This single parameter is the independent variable of the whole
+comparison: it lets us sweep from a perfectly diverse player population to a
+pathologically concentrated one and watch the tradeoff respond.
+
+Every snapshot is generated from a fixed random seed, so the entire experiment
+is reproducible. Player identifiers are clean, whitespace-free strings, which
+matters because the comparison joins the two orderings' outputs by identifier.
+
 ## 3.2 Metrics
+
+We record two quantities per match, one for each side of the thesis. The **MMR
+gap** is the absolute difference in mean MMR between the two teams —
+$\lvert \overline{\text{MMR}}_{\text{red}} - \overline{\text{MMR}}_{\text{blue}}
+\rvert$ — and measures unfairness: a large gap is a lopsided match. Both
+orderings compute it identically, subtracting team sums before dividing by team
+size rather than the reverse, so that the two pipelines' gaps are bit-for-bit
+comparable and not separated by floating-point rounding. The **autofill count**
+is the number of players placed in a non-preferred lane, and measures
+preference dissatisfaction: it is zero for lane-first by construction, and the
+sum of the two teams' off-preference placements for balance-first.
+
+For the comparison experiment we sweep $\gamma$ from $0.0$ to $0.7$ in steps of
+$0.1$, and at each setting draw many independent snapshots, pool each down to a
+feasible ten (Stage 1), and run _both_ orderings on that same pool so the only
+difference is the ordering. We stop at $\gamma = 0.7$ deliberately: beyond it,
+concentrated preferences make feasible pools so rare that too few snapshots
+survive pooling to estimate the metrics reliably. Within $0.0$–$0.7$ the
+feasible-pool rate stays near one, so this truncation costs us nothing in the
+regime we report; the shrinking feasibility at higher $\gamma$ is itself an
+observation we return to in §4.1. The scalability experiment (§4.2) is separate
+and does not use $\gamma$ at all, since runtime depends on pool size, not on the
+preference distribution.
 
 # 4 Analysis
 
 ## 4.1 Fairness–Preference Tradeoff
 
+The central result is that the two orderings occupy opposite corners of the
+tradeoff, exactly as their designs predict (Figure 1). Across the whole sweep,
+lane-first holds its autofill at zero while its mean MMR gap sits around $2.1$;
+balance-first holds its gap near $0.3$ — roughly a sevenfold improvement in
+fairness — while paying a positive autofill that climbs from about $0.7$ to
+about $1.1$ players per match. Neither ordering dominates: each buys one virtue
+with the other's cost.
+
+![Figure 1: Fairness-vs-preference tradeoff. Lane-first holds autofill at zero with a higher MMR gap; balance-first holds the gap low while its autofill rises with preference concentration.](../results/figures/fig1_tradeoff.png)
+
+**Figure 1.** Fairness–preference tradeoff across the concentration sweep. Left axis: mean MMR gap for both orderings. Right axis: balance-first's mean autofill (lane-first's is zero by construction).
+
+Two features of the data deserve comment because they are not obvious a priori.
+
+First, **lane-first's gap does not fall as we might hope** — it stays flat near
+$2.1$ regardless of $\gamma$, and stays clearly above balance-first's. The
+flatness is a consequence of pooling: Stage 1 already hands both orderings an
+MMR-compact ten, so any split of it starts from a small spread, and preference
+concentration (which is about lanes, not MMR) cannot change that. The residual
+gap above balance-first is structural: lane-first chooses among only $32$
+lane-constrained splits, while balance-first chooses freely among $126$, so
+balance-first can always reach a split at least as balanced. The gap between the
+two lines is thus the price of the lane constraint, not an artifact of the data.
+
+Second, **balance-first's autofill rises with concentration** (Figure 2). When
+preferences are diverse, an MMR-chosen half is usually lane-feasible on its own
+and needs little backfill; as preferences concentrate on MID and ADC, a half
+drawn for MMR balance increasingly contains too many players wanting the same
+lanes, forcing off-preference placement. This is the mechanism behind the whole
+tradeoff: concentration does not degrade _fairness_ under either ordering, it
+raises the _preference cost_ that balance-first must pay to keep fairness high.
+
+![Figure 2: Balance-first autofill rising with preference concentration; lane-first stays at zero.](../results/figures/fig2_autofill.png)
+
+**Figure 2.** Mean autofill versus preference concentration. Balance-first's cost climbs as preferences cluster on the hot lanes; lane-first stays at zero.
+
+The distributions sharpen the point (Figure 3). Lane-first's gap is not merely
+higher on average but far more variable: its box is tall and its outliers reach
+past $30$, meaning it occasionally produces severely lopsided matches — the
+"the other team's jungler is far stronger" experience. Balance-first's gap
+distribution is tight against zero with few and small outliers. So balance-first
+is not only fairer on average but far more _consistent_, a fact the mean alone
+hides.
+
+![Figure 3: Gap distribution box plot. Lane-first's box is taller with outliers past 30; balance-first's is tight against zero.](../results/figures/fig3_gap_spread.png)
+
+**Figure 3.** Distribution of the MMR gap over all trials. The box spans the middle 50% of matches, the line inside is the median, and the circles are outlier matches. Lane-first is both higher and far more variable.
+
+Finally, the feasibility truncation of §3.2 is itself a finding: as $\gamma$
+approaches and exceeds $0.7$, the fraction of snapshots that yield any feasible
+pool drops sharply. Under extreme concentration the difficulty is no longer
+_which_ ordering to use but whether a legal, role-complete match can be formed
+at all — feasibility, not optimization, becomes the binding constraint.
+
 ## 4.2 Scalability
 
+The comparison above lives at a fixed match size of ten. The scalability
+question is separate: as the queue from which we pool grows, does the
+feasibility check — the max-flow of Stage 2 — stay cheap? This matters because
+the "feasibility is polynomial" half of our thesis is only useful in practice
+if the polynomial is a mild one.
+
+We measure the mean runtime of a single capacity-2 matching call as the pool
+size $P$ grows from $10$ to $3200$ players, averaging many repeated runs per
+size from a fixed seed (Figure 4). Runtime rises smoothly and close to linearly
+with $P$: from a fraction of a millisecond at $P = 10$ to roughly $44$ ms at
+$P = 3200$, with each doubling of $P$ roughly doubling the time.
+
+![Figure 4: Matching runtime versus pool size, rising near-linearly from under 1ms to about 44ms at P=3200.](../results/figures/fig4_scalability.png)
+
+**Figure 4.** Mean runtime of one capacity-2 matching call as pool size $P$ grows. Near-linear growth confirms the feasibility check is polynomial-time. The growth is
+polynomial — and notably milder than Edmonds–Karp's worst-case $O(VE^2)$,
+because our sink capacity is fixed at $5c$, capping total flow independently of
+$P$ and so bounding the number of augmenting paths. The practical import is that
+verifying whether a candidate window is lane-feasible stays in the millisecond
+range even for pools of thousands, which is what makes the Stage 1 scan over
+many windows affordable.
+
+The measured time includes the defensive deep copy the matcher makes to avoid
+mutating its input; that copy is itself linear in $P$ and does not change the
+polynomial conclusion. The contrast with balancing is the point of the whole
+project: feasibility scales gracefully with pool size, while optimal balancing
+is NP-hard (§2.3) and would explode with match size — which is exactly why the
+architecture confines balancing to a fixed ten-player match and lets pooling and
+matching absorb the scale.
+
 # 5 Conclusion
+
+We modeled MOBA matchmaking as a three-stage pipeline — pool, match, balance —
+and used it to study a single design question: should lane matching or team
+balancing run first? The two orderings are not right and wrong but two ends of a
+fairness–preference tradeoff. Lane-first guarantees every player a preferred
+lane at the cost of a larger, lane-constrained MMR gap; balance-first achieves a
+much smaller and more consistent gap at the cost of off-preference placements,
+and that cost grows as preferences concentrate. The choice between them is
+really a choice of what a game values.
+
+Underneath the comparison sits a two-sided complexity story that the pipeline
+was built to expose. Checking feasibility — can these players staff five lanes?
+— is a polynomial-time max-flow that scales gently with pool size, while
+balancing optimally is NP-hard in general. Our matches are tractable not because
+the hard problem became easy but because each match is a small, fixed
+ten-player instance; the classification and the tractability are independent
+facts. Pooling and matching carry the scale, and balancing is deliberately
+penned into a constant-size instance where brute force is instantaneous.
+
+Several limitations point to future work. Our model is deliberately narrow: a
+one-sided, unweighted, capacity-constrained matching with two-lane preferences,
+no party queuing, and MMR as a single scalar. Richer settings — weighted or
+two-sided-stable matching, dynamic queues that arrive over time, or batching
+several matches at once — are all natural extensions, and each moves the problem
+into a different (and generally harder) corner of the design space than the one
+we fixed here. We also truncated the comparison at moderate preference
+concentration, where feasible pools remain common; the regime beyond, where
+forming any legal match becomes the dominant difficulty, is worth a study of its
+own. What our results establish within these bounds is clean and, we think,
+intuitive: the order in which you satisfy people and balance them is not a
+detail but the tradeoff itself.
