@@ -8,10 +8,11 @@
 >
 > **CLRS edition**: `<!-- TODO: standardize on 3rd ed (§26.3, max-flow in Ch 26) or 4th ed (Ch 24) -->`
 > The paper, slides, and both members' pseudocode must agree.
->
-> **Ownership**: `POOL` / `BALANCE-PARTITION` / `LANE-FIRST` / `BALANCE-FIRST` by
-> Zichen; `LANE-MATCH` (Stage 2) is a placeholder for Liuyi to fill. Match the
+> **Ownership**: `POOL` / `BALANCE-PARTITION` / `BALANCE-FIRST` by Zichen;
+> `LANE-MATCH` (Stage 2) and `LANE-FIRST` / 32-split by Liuyi.
+> Match the
 > style of this file (CLRS indented).
+
 
 ---
 
@@ -51,30 +52,89 @@ POOL(snapshot)                               // return an MMR-compact, lane-feas
 
 ---
 
-## Stage 2 — Lane Matching _(Liuyi — placeholder)_
+## Stage 2 — Lane Matching _(Liuyi)_
+
+### LANE-MATCH
 
 ```
-LANE-MATCH(P, cap)                           // ── OWNED BY LIUYI: fill in ──
-    // INPUT : P   = set of players
-    //         cap = lane capacity (1 for a 5-player team; 2 for a 10-player pool)
-    // OUTPUT: matching       — each player -> assigned lane
-    //         autofill_count — |P| - max_flow (players placed off-preference)
-    //         max_flow       — total s->t flow; POOL reads this as the feasibility oracle
-    //
-    // Method: build the flow network (s->player cap 1; player->preferred lane cap 1;
-    //         lane->t cap = cap), run Edmonds-Karp on shortest augmenting paths,
-    //         read max_flow, backfill the shortfall as autofill.
-    //
-    // TERMINOLOGY RED LINE: primary-over-secondary is an emergent effect of BFS
-    //         visiting order, NOT a structural guarantee (a reverse-edge undo can
-    //         reroute a player from primary to secondary).
+LANE-MATCH(P, cap)                           // max-flow bipartite lane matching (Edmonds-Karp)
+    // Complexity: O(V * E^2) theoretically (Edmonds-Karp); O(1) in practice for fixed |P| (5 or 10)
+    // Step 1: Construct flow network G = (V, E)
+    G = CREATE-EMPTY-FLOW-NETWORK()
+    for each player p in P
+        ADD-DIRECTED-EDGE(G, s, p, cap = 1)
+        ADD-DIRECTED-EDGE(G, p, p.pref_primary, cap = 1)    // Primary edge added first for implicit preference priority
+        if p.pref_secondary != NIL
+            ADD-DIRECTED-EDGE(G, p, p.pref_secondary, cap = 1)
 
-    <TODO: Liuyi to fill in>
+    for each lane in {TOP, JUG, MID, ADC, SUP}
+        ADD-DIRECTED-EDGE(G, lane, t, cap = cap)
+
+    // Step 2: Edmonds-Karp main loop (push flow along BFS augmenting paths)
+    max-flow = 0
+    path = FIND-AUGMENTING-PATH-BFS(G, s, t)
+    while path != NIL
+        for each (u, v) in path
+            G.flow(u, v) = G.flow(u, v) + 1  // forward edge flow +1
+            G.flow(v, u) = G.flow(v, u) - 1  // backward residual edge flow -1 (undo mechanism)
+        max-flow = max-flow + 1
+        path = FIND-AUGMENTING-PATH-BFS(G, s, t)
+
+    // Step 3: Extract matching results and calculate autofill gap
+    matching = empty dict
+    unmatched = empty list
+    for each player p in P
+        if G.flow(p, p.pref_primary) == 1
+            matching[p.id] = p.pref_primary
+        else if p.pref_secondary != NIL and G.flow(p, p.pref_secondary) == 1
+            matching[p.id] = p.pref_secondary
+        else
+            unmatched.append(p)
+
+    autofill = |P| - max-flow
+    if autofill > 0
+        HANDLE-AUTOFILL(unmatched, matching, cap)
+
+    return matching, autofill, max-flow
 ```
+
+### FIND-AUGMENTING-PATH-BFS
+
+```
+FIND-AUGMENTING-PATH-BFS(G, s, t)
+    // Complexity: O(V + E) for BFS graph traversal
+    parent = dict with {s: NIL}
+    queue = FIFO-QUEUE([s])
+    while queue is not empty and t not in parent
+        curr = queue.pop_front()
+        for each neighbor in G.neighbors(curr)
+            residual = G.capacity(curr, neighbor) - G.flow(curr, neighbor)
+            if neighbor not in parent and residual > 0
+                parent[neighbor] = curr
+                queue.push_back(neighbor)
+
+    if t in parent
+        return RECONSTRUCT-PATH(parent, s, t)
+    return NIL
+```
+
+### HANDLE-AUTOFILL
+
+```
+HANDLE-AUTOFILL(unmatched, matching, cap)
+    // Complexity: O(|unmatched| * |lanes|) = O(1) for fixed 5 lanes
+    lane_counts = count of matched players per lane in matching
+    for each player p in unmatched
+        open_lane = first lane in {TOP, JUG, MID, ADC, SUP} with lane_counts[lane] < cap
+        matching[p.id] = open_lane
+        lane_counts[open_lane] = lane_counts[open_lane] + 1
+```
+
+> **Edmonds-Karp Network Flow Notes**: Lane capacity `cap = 2` is used for 10-player pool matching, and `cap = 1` for 5-player single-team matching. Because player edge capacities are 1, each augmenting path pushes 1 unit of flow. Primary preference edges are added first to give them priority during BFS traversal.
 
 ---
 
-## Stage 3 — Team Balancing _(Zichen)_
+## Stage 3 — Team Balancing _(Zichen & Liuyi)_
 
 ```
 BALANCE-PARTITION(P)                         // split 10 players into two teams, minimizing MMR gap (free split)
@@ -97,29 +157,41 @@ BALANCE-PARTITION(P)                         // split 10 players into two teams,
 > small instance; the general BALANCE-OPT problem is **NP-hard** (a
 > classification of the general problem, not a property of this instance).
 
+### 32 Role-Preserving Partitioning Scheme _(Liuyi)_
+
+```
+SOLVE-32-LANE-BALANCING(lane_players)        // split 5 lanes (2 players each) into two 5-player teams
+    // Complexity: O(2^5) = O(32) = O(1) constant search (general problem is NP-hard via PARTITION)
+    best-gap   = INF
+    best-split = NIL
+    // Enumerate 2^5 = 32 role-preserving splits: for each of 5 lanes, assign 1 player to Red, 1 to Blue
+    for each choice in CARTESIAN-PRODUCT([0, 1], repeat = 5)
+        A, B = ASSEMBLE-TEAMS(lane_players, choice)
+        g = GAP(A, B)                        // gap between team MMR means
+        if g < best-gap
+            best-gap   = g
+            best-split = (A, B)
+    return best-split, best-gap
+```
+
+> Evaluating all 32 role-preserving splits finds the minimum MMR gap over 5 fixed lanes (general problem is NP-hard by reduction from PARTITION). Enumerating all 32 takes `O(1)` time because the 5-lane instance size is fixed.
+
 ---
 
 ## Two Orderings
 
-### Lane-first _(Zichen)_ — match, then balance
+### Lane-first _(Liuyi)_ — match, then balance
 
 ```
 LANE-FIRST(P)
-    (matching, autofill, flow) = LANE-MATCH(P, cap = 2)
-    // P was certified pool-feasible in POOL => flow == 10, autofill == 0
-    for each lane L in {TOP, JUG, MID, ADC, SUP}
-        occupants[L] = { p in P : matching[p] == L }   // exactly 2 players per lane
-    best-gap   = INF
-    best-split = NIL
-    for each of the 2^5 == 32 red/blue choices         // one bit per lane: which occupant goes red
-        R = {} ; B = {}
-        for each lane L
-            (r, b) = split occupants[L] into red/blue by that lane's bit
-            R = R union {r} ; B = B union {b}
-        g = GAP(R, B)
-        if g < best-gap
-            best-gap = g ; best-split = (R, B)
-    return best-split, best-gap, autofill = 0          // autofill is identically 0 (by construction)
+    // Complexity: O(LANE-MATCH) + O(SOLVE-32) = O(1) overall constant time
+    matching, _, flow = LANE-MATCH(P, cap = 2)         // cap = 2: match 10 players into 5 lanes (2 per lane); flow == 10
+    lane_players = GROUP-BY-LANE(matching, P)           // map each lane to its 2 assigned players
+    (A, B), gap = SOLVE-32-LANE-BALANCING(lane_players) // enumerate 2^5 = 32 role-preserving splits, min MMR gap
+    matchA = EXTRACT-TEAM-MATCH(matching, A)           // per-team lane assignment derived from pool matching
+    matchB = EXTRACT-TEAM-MATCH(matching, B)
+    autofill = 0                                       // lane-first guarantees autofill == 0 by construction
+    return (A, matchA), (B, matchB), gap, autofill
 ```
 
 ### Balance-first _(Zichen)_ — balance, then match
