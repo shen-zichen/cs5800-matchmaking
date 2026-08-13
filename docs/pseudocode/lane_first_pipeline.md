@@ -3,7 +3,7 @@
 > 📝 **Liuyi 的 Pseudocode 整理笔记 (Lane-First Pipeline)**：
 > 这是我们项目核心的 **Lane-First (角色优先/Role-Preserving) 端到端匹配流水线**。
 > 先使用 Capacity=2 的 Max-Flow 算法把 10 人 Pool 填满 5 条分路 (每路 2 人)，
-> 再枚举 $2^5 = 32$ 种角色合规拆分组合，寻找两队 MMR Gap 最小的 5v5 最佳对局
+> 再调用子函数枚举 `2^5 = 32` 种角色合规拆分组合，寻找两队 MMR Gap 最小的 5v5 最佳对局。
 
 ```python
 def Run_Lane_First_Pipeline(pool):
@@ -19,9 +19,24 @@ def Run_Lane_First_Pipeline(pool):
     matching, autofill_count, max_flow = Lane_Matching_Max_Flow(pool, lane_capacity=2)
     lane_players = Group_Players_By_Lane(matching, pool)
 
-    # --- Step 2: Stage 3 Role-Preserving Balancing (32 Partitions) ---
+    # --- Step 2: Stage 3 Role-Preserving Balancing (32 Partitions Subroutine) ---
+    # 调用专门的子函数求解 32 种角色合规拆分中的最小 MMR gap
+    team_red, team_blue, best_gap = Solve_32_Lane_Balancing(lane_players)
+
+    # --- Step 3: 返回 MMR Gap 最小且 autofill=0 的最佳对局 ---
+    return Create_Match(team_red, team_blue, best_gap, total_autofill=0)
+
+
+def Solve_32_Lane_Balancing(lane_players):
+    """
+    INPUT:
+        lane_players: Dict mapping 5 lanes to 2 assigned players per lane
+    OUTPUT:
+        best_red, best_blue, best_gap: Optimal team split and minimum MMR gap
+    """
     best_gap = infinity
-    best_match = None
+    best_red = None
+    best_blue = None
 
     # 枚举 2^5 = 32 种角色合规的红蓝对局拆分
     # (对 5 条分路的每一条，各放 1 人去红队，1 人去蓝队)
@@ -33,8 +48,9 @@ def Run_Lane_First_Pipeline(pool):
 
         if mmr_gap < best_gap:
             best_gap = mmr_gap
-            best_match = Create_Match(team_red, team_blue, best_gap, total_autofill=0)
+            best_red = team_red
+            best_blue = team_blue
 
-    # --- Step 3: 返回 MMR Gap 最小且 autofill=0 的最佳对局 ---
-    return best_match
+    return best_red, best_blue, best_gap
 ```
+
