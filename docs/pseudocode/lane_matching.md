@@ -75,5 +75,28 @@ def Find_Augmenting_Path_BFS(G, s, t):
     return None
 ```
 
+
 ## 🔀 跟 CLRS 教材原版伪代码的对比笔记 (By Liuyi)
-还没写完 写完了补充
+
+> 💡 **这部分笔记说明**：
+> 我把代码跟 CLRS 4th P.686 教材原版的 `FORD-FULKERSON` 做了一个 diff 对比。
+> 可以放进presentation,方便看出来哪些地方直接继承了教材的标准框架，哪些地方是为了适应本 Case 做了调整：
+
+```diff
+  LANE-MATCHING-MAX-FLOW(P, lane_capacity)
+  1  G = Construct_Bipartite_Graph(P, lane_capacity)
++ 2  max_flow = 0                              # [新增 L2]: 拿来记录最终成功匹配的玩家总流量
+  3  path = Find_Augmenting_Path_BFS(G, s, t)  # [改动 L3]: 明确用 BFS 搜最短增广路 (Edmonds-Karp 算法)
+  4  while path is not None:
+- 5      bottleneck = min { residual_capacity(u, v) : (u, v) in path }
++ 5      # [改动 L5]: 咱这二分匹配每条边容量都是 1，瓶颈 bottleneck 恒等于 1，不用专门跑 min
+  6      for each edge (u, v) in path:
+- 7          if (u, v) in G.Edges: (u, v).flow += bottleneck else (v, u).flow -= bottleneck
++ 7          G.flow(u, v) += 1                 # [改动 L7]: 正向边推水流直接 +1
++ 8          G.flow(v, u) -= 1                 # [改动 L8]: 反向边退水流直接 -1 (Undo 改选机制)
++ 9      max_flow += 1                         # [新增 L9]: 找到一条增广路，匹配成功数 +1
+ 10      path = Find_Augmenting_Path_BFS(G, s, t)
+ 11
++ 12 matching, autofill_count = Extract_Matching_And_Autofill(G, P) # [新增 L12]: 跑完后把图里的水流翻译成 matching 字典
++ 13 return matching, autofill_count, max_flow  # [新增 L13]: 返回项目后续处理中需要的 3 个核心字段
+```
