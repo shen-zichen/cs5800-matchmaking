@@ -8,7 +8,7 @@ CS 5800 期末项目：MOBA Matchmaking — Lane-First 端到端流水线 (Lane-
 
 import copy
 import itertools
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Tuple
 from codes.models import Lane, Player, Pool, Team, Match
 from codes.lane_matching import solve_lane_matching
 
@@ -36,11 +36,63 @@ def convert_data_to_players(raw_data: Union[Pool, List[Player], List[dict]]) -> 
     return raw_data  # fallback
 
 
+def solve_32_lane_balancing(lane_players: Dict[Lane, List[Player]]) -> Tuple[Team, Team, float]:
+    """
+    Stage 3 Role-Preserving Balancing:
+    枚举 2^5 = 32 种角色的红蓝拆分组合，计算并寻找两队 MMR Gap 最小的拆分方案。
+
+    参数:
+        lane_players: 按分路归类的玩家字典，每条分路恰好包含 2 名玩家。
+
+    返回:
+        (best_red_team, best_blue_team, best_gap)
+    """
+    lanes = [Lane.TOP, Lane.JUG, Lane.MID, Lane.ADC, Lane.SUP]
+    best_gap = float("inf")
+    best_red_team = None
+    best_blue_team = None
+
+    # 枚举 2^5 = 32 种红蓝分配组合
+    # 使用 Python 内置标准库 itertools.product
+    for choice in itertools.product([0, 1], repeat=5):
+        red_players = []
+        blue_players = []
+        red_map = {}
+        blue_map = {}
+
+        for i, lane in enumerate(lanes):
+            p1 = lane_players[lane][0]
+            p2 = lane_players[lane][1]
+
+            if choice[i] == 0:
+                red_players.append(p1)
+                red_map[lane] = p1
+                blue_players.append(p2)
+                blue_map[lane] = p2
+            else:
+                red_players.append(p2)
+                red_map[lane] = p2
+                blue_players.append(p1)
+                blue_map[lane] = p1
+
+        # 计算两队 MMR gap
+        red_sum_mmr = sum(p.mmr for p in red_players)
+        blue_sum_mmr = sum(p.mmr for p in blue_players)
+        gap = abs(red_sum_mmr - blue_sum_mmr) / 5.0
+
+        if gap < best_gap:
+            best_gap = gap
+            best_red_team = Team(players=red_players, lane_map=red_map, autofill_count=0)
+            best_blue_team = Team(players=blue_players, lane_map=blue_map, autofill_count=0)
+
+    return best_red_team, best_blue_team, best_gap
+
+
 def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
     """
     Lane-First 匹配流水线 (Role-Preserving 模式):
     1. 对 10 人 Pool 运行 capacity=2 的 solve_lane_matching，5 条 lane 每路 2 人。
-    2. 枚举 2^5 = 32 种角色的红蓝拆分组合，计算两队 MMR Gap。
+    2. 调用 solve_32_lane_balancing 枚举 2^5 = 32 种拆分组合，计算两队 MMR Gap。
     3. 返回 MMR Gap 最小且 autofill=0 的 Match 结果。
 
     示例输入 (Input Example):
@@ -84,42 +136,8 @@ def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
         p.is_autofilled = False
         lane_players[lane_enum].append(p)
 
-    best_gap = float("inf")
-    best_red_team = None
-    best_blue_team = None
-
-    # 2. 枚举 2^5 = 32 种红蓝分配组合
-    # 使用 Python 内置标准库 itertools.product
-    for choice in itertools.product([0, 1], repeat=5):
-        red_players = []
-        blue_players = []
-        red_map = {}
-        blue_map = {}
-
-        for i, lane in enumerate(lanes):
-            p1 = lane_players[lane][0]
-            p2 = lane_players[lane][1]
-
-            if choice[i] == 0:
-                red_players.append(p1)
-                red_map[lane] = p1
-                blue_players.append(p2)
-                blue_map[lane] = p2
-            else:
-                red_players.append(p2)
-                red_map[lane] = p2
-                blue_players.append(p1)
-                blue_map[lane] = p1
-
-        # 计算两队 MMR gap 
-        red_sum_mmr = sum(p.mmr for p in red_players)
-        blue_sum_mmr = sum(p.mmr for p in blue_players)
-        gap = abs(red_sum_mmr - blue_sum_mmr) / 5.0
-
-        if gap < best_gap:
-            best_gap = gap
-            best_red_team = Team(players=red_players, lane_map=red_map, autofill_count=0)
-            best_blue_team = Team(players=blue_players, lane_map=blue_map, autofill_count=0)
+    # 2. 调用 32 种红蓝分配组合的子函数求解最佳平衡
+    best_red_team, best_blue_team, best_gap = solve_32_lane_balancing(lane_players)
 
     # 3. 返回 Match 对象
     return Match(
@@ -128,3 +146,4 @@ def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
         mmr_gap=best_gap,
         total_autofill=0,
     )
+

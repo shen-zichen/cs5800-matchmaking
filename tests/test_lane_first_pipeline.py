@@ -12,7 +12,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from codes.models import Lane, Player, Pool, Match
-from codes.lane_first_pipeline import run_lane_first, convert_data_to_players
+from codes.lane_first_pipeline import run_lane_first, convert_data_to_players, solve_32_lane_balancing
 
 TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), "test_data_lane_matching.json")
 
@@ -134,8 +134,40 @@ def test_does_not_mutate_caller_pool():
     print("==================== ✅ Test 3: Anti-Mutation (DeepCopy) Check PASSED ====================\n")
 
 
+def test_solve_32_lane_balancing_directly():
+    """直接测试提取出来的 32 种红蓝拆分组合算法 solve_32_lane_balancing"""
+    print("==================== 🚀 Test 4: Direct Call to solve_32_lane_balancing START ====================")
+    lanes = [Lane.TOP, Lane.JUG, Lane.MID, Lane.ADC, Lane.SUP]
+    lane_players = {}
+    
+    # 构造简单的测试玩家集: 每个分路两人 MMR 略有出入
+    # TOP: 1000, 1100 -> diff 100
+    # JUG: 1000, 1050 -> diff 50
+    # MID: 1000, 1000 -> diff 0
+    # ADC: 1000, 1000 -> diff 0
+    # SUP: 1000, 1000 -> diff 0
+    p_id = 1
+    for lane in lanes:
+        p1 = Player(id=f"P{p_id}", mmr=1000, pref_primary=lane, assigned_lane=lane)
+        p_id += 1
+        p2_mmr = 1100 if lane == Lane.TOP else (1050 if lane == Lane.JUG else 1000)
+        p2 = Player(id=f"P{p_id}", mmr=p2_mmr, pref_primary=lane, assigned_lane=lane)
+        p_id += 1
+        lane_players[lane] = [p1, p2]
+
+    red, blue, gap = solve_32_lane_balancing(lane_players)
+    assert len(red.players) == 5
+    assert len(blue.players) == 5
+    # 最佳拆分应该把 TOP 1100 和 JUG 1000 放在一队(SUM=5100)，TOP 1000 和 JUG 1050 放在另一队(SUM=5050)，gap = (5100-5050)/5 = 10.0
+    assert gap == 10.0
+    print(f"📊 Direct solve_32_lane_balancing gap result: {gap}")
+    print("==================== ✅ Test 4: Direct Call to solve_32_lane_balancing PASSED ====================\n")
+
+
 if __name__ == "__main__":
     test_run_lane_first_with_dict_list()
     test_run_lane_first_with_pool()
     test_does_not_mutate_caller_pool()
+    test_solve_32_lane_balancing_directly()
     print("==================== 🎉 All Lane-First Pipeline Tests Passed Successfully! ====================")
+
