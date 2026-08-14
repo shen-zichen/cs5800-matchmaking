@@ -77,6 +77,11 @@ python -m codes.scalability_test        # run the matching scalability experimen
 python -m codes.plots                   # regenerate figures
 ```
 
+## Contribution Explaining Video
+
+- Liuyi Yang: https://www.youtube.com/watch?v=B3gMvwNBOEg
+- Zichen Shen: [Zichen Video.mp4](Zichen%20Video.mp4)
+
 ## Team
 
 Zichen Shen · Liuyi Yang
