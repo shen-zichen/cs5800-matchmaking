@@ -1,9 +1,10 @@
 """
-CS 5800 期末项目：MOBA Matchmaking — Lane-First 端到端流水线 (Lane-First Pipeline)
+CS 5800 Final Project: MOBA Matchmaking — Lane-First End-to-End Pipeline
 
-本模块实现角色优先 (Role-Preserving Strategy) 哲学的端到端匹配工作流。
-先使用 Max-Flow 将 10 人 Pool 匹配至 5 条分路 (每路 2 人)，
-再在 2^5 = 32 种角色合规拆分中寻找两队 MMR Gap 最小的 5v5 对局组合。
+This module implements the end-to-end matching workflow for the Role-Preserving Strategy.
+It first uses Max-Flow to assign the 10-player Pool to 5 lanes (2 players per lane),
+then searches over the 2^5 = 32 role-valid splits for the 5v5 match with the smallest
+team MMR gap.
 """
 
 import copy
@@ -15,9 +16,10 @@ from codes.lane_matching import solve_lane_matching
 
 def convert_data_to_players(raw_data: Union[Pool, List[Player], List[dict]]) -> List[Player]:
     """
-    Placeholder: 格式转换占位函数。
-    用来适配各种可能的数据输入格式 (Pool, List[Player], 或来自 JSON 的 dict 列表)。
-    如果未来需要处理不同格式（例如 data generator 可能产出不同格式），在这里补充对应转换逻辑即可。
+    Placeholder: data-format adapter.
+    Adapts various possible input formats (Pool, List[Player], or a list of dicts from JSON).
+    If different formats need to be handled in the future (e.g. the data generator may
+    produce a different format), add the corresponding conversion logic here.
     """
     if isinstance(raw_data, Pool):
         return raw_data.players
@@ -39,12 +41,13 @@ def convert_data_to_players(raw_data: Union[Pool, List[Player], List[dict]]) -> 
 def solve_32_lane_balancing(lane_players: Dict[Lane, List[Player]]) -> Tuple[Team, Team, float]:
     """
     Stage 3 Role-Preserving Balancing:
-    枚举 2^5 = 32 种角色的红蓝拆分组合，计算并寻找两队 MMR Gap 最小的拆分方案。
+    Enumerate the 2^5 = 32 red/blue split combinations, compute each team's MMR gap,
+    and find the split with the smallest gap.
 
-    参数:
-        lane_players: 按分路归类的玩家字典，每条分路恰好包含 2 名玩家。
+    Args:
+        lane_players: players grouped by lane, with exactly 2 players per lane.
 
-    返回:
+    Returns:
         (best_red_team, best_blue_team, best_gap)
     """
     lanes = [Lane.TOP, Lane.JUG, Lane.MID, Lane.ADC, Lane.SUP]
@@ -52,8 +55,8 @@ def solve_32_lane_balancing(lane_players: Dict[Lane, List[Player]]) -> Tuple[Tea
     best_red_team = None
     best_blue_team = None
 
-    # 枚举 2^5 = 32 种红蓝分配组合
-    # 使用 Python 内置标准库 itertools.product
+    # Enumerate the 2^5 = 32 red/blue assignment combinations
+    # Using the Python standard library itertools.product
     for choice in itertools.product([0, 1], repeat=5):
         red_players = []
         blue_players = []
@@ -75,7 +78,7 @@ def solve_32_lane_balancing(lane_players: Dict[Lane, List[Player]]) -> Tuple[Tea
                 blue_players.append(p1)
                 blue_map[lane] = p1
 
-        # 计算两队 MMR gap
+        # Compute the two teams' MMR gap
         red_sum_mmr = sum(p.mmr for p in red_players)
         blue_sum_mmr = sum(p.mmr for p in blue_players)
         gap = abs(red_sum_mmr - blue_sum_mmr) / 5.0
@@ -90,18 +93,19 @@ def solve_32_lane_balancing(lane_players: Dict[Lane, List[Player]]) -> Tuple[Tea
 
 def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
     """
-    Lane-First 匹配流水线 (Role-Preserving 模式):
-    1. 对 10 人 Pool 运行 capacity=2 的 solve_lane_matching，5 条 lane 每路 2 人。
-    2. 调用 solve_32_lane_balancing 枚举 2^5 = 32 种拆分组合，计算两队 MMR Gap。
-    3. 返回 MMR Gap 最小且 autofill=0 的 Match 结果。
+    Lane-First matching pipeline (Role-Preserving mode):
+    1. Run capacity=2 solve_lane_matching on the 10-player Pool, 2 players per lane.
+    2. Call solve_32_lane_balancing to enumerate the 2^5 = 32 splits and compute each
+       team's MMR gap.
+    3. Return the Match with the smallest MMR gap and autofill=0.
 
-    示例输入 (Input Example):
+    Input Example:
         pool_input = [
             {"id": "P01", "mmr": 1500, "pref_primary": "TOP", "pref_secondary": "JUG"},
-            ... # 共 10 名 Player 对象或 Dict 列表
+            ... # 10 Player objects or dicts in total
         ]
 
-    示例输出 (Output Example):
+    Output Example:
         Match(
             team_red=Team(players=[...], autofill_count=0),
             team_blue=Team(players=[...], autofill_count=0),
@@ -109,21 +113,22 @@ def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
             total_autofill=0
         )
     """
-    # 转译/解析数据并进行深拷贝，防止污染主调方的原始 Pool 实例
+    # Parse/convert the data and deep-copy it to avoid polluting the caller's original Pool instance
     raw_players = convert_data_to_players(pool_input)
     players = copy.deepcopy(raw_players)
 
-    # 1. 跑 capacity=2 的 Max-Flow 分路匹配
+    # 1. Run capacity=2 Max-Flow lane matching
     matching, autofill_count, max_flow = solve_lane_matching(players, lane_capacity=2)
 
-    # 防御性校验：按流程从 Pooling 传进来的 10 人池 max_flow 必定等于 10
+    # Defensive check: a 10-player pool passed in from Pooling must have max_flow == 10
     if max_flow < 10:
         raise ValueError(
-            f"防御性断言触发：传入的候选池无法在偏好内凑满 5 条分路 (max_flow={max_flow} < 10)。"
-            "请确认输入 Pool 是否已过 Stage 1 Pooling 的可行性校验。"
+            f"Defensive assertion triggered: the input pool cannot fill all 5 lanes within "
+            f"preferences (max_flow={max_flow} < 10). "
+            "Please confirm the input Pool has passed the Stage 1 Pooling feasibility check."
         )
 
-    # 按分路归类玩家 (每条分路 2 人)
+    # Group players by lane (2 players per lane)
     lanes = [Lane.TOP, Lane.JUG, Lane.MID, Lane.ADC, Lane.SUP]
     lane_players: Dict[Lane, List[Player]] = {lane: [] for lane in lanes}
 
@@ -136,14 +141,13 @@ def run_lane_first(pool_input: Union[Pool, List[Player], List[dict]]) -> Match:
         p.is_autofilled = False
         lane_players[lane_enum].append(p)
 
-    # 2. 调用 32 种红蓝分配组合的子函数求解最佳平衡
+    # 2. Call the 32-split red/blue subroutine to solve for the best balance
     best_red_team, best_blue_team, best_gap = solve_32_lane_balancing(lane_players)
 
-    # 3. 返回 Match 对象
+    # 3. Return the Match object
     return Match(
         team_red=best_red_team,
         team_blue=best_blue_team,
         mmr_gap=best_gap,
         total_autofill=0,
     )
-

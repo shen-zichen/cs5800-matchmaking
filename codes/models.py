@@ -1,14 +1,14 @@
 """
-CS 5800 期末项目：MOBA Matchmaking — 核心数据模型
+CS 5800 Final Project: MOBA Matchmaking — Core Data Models
 
-本模块定义了匹配算法三阶段用到的核心数据结构：
-- Lane (Enum): 5 个分路位置 (TOP, JUG, MID, ADC, SUP)
-- Player (Dataclass): 单个玩家信息与偏好
-- Pool (Dataclass): Stage 1 抽取出的 10 人候选池
-- Team (Dataclass): 5 人分路队伍
-- Match (Dataclass): 最终 5v5 对局结果
+This module defines the core data structures used across the three matching stages:
+- Lane (Enum): the 5 lane positions (TOP, JUG, MID, ADC, SUP)
+- Player (Dataclass): a single player's info and preferences
+- Pool (Dataclass): the 10-player candidate pool extracted in Stage 1
+- Team (Dataclass): a 5-player laned team
+- Match (Dataclass): the final 5v5 match result
 
-详细说明文档请参考同目录下的：
+For detailed documentation, see the file in the same directory:
 code/models_readme.md
 """
 
@@ -18,7 +18,7 @@ from typing import List, Dict, Optional
 
 
 class Lane(Enum):
-    """5 个分路位置"""
+    """The 5 lane positions"""
     TOP = "TOP"
     JUG = "JUG"
     MID = "MID"
@@ -29,15 +29,15 @@ class Lane(Enum):
 @dataclass
 class Player:
     """
-    玩家模型
-    
+    Player model
+
     Attributes:
-        id: 玩家 ID
-        mmr: 隐藏战力分 (整数 int)
-        pref_primary: 主选分路
-        pref_secondary: 次选分路 (可选)
-        assigned_lane: 匹配后分派的分路 (初始为 None)
-        is_autofilled: 补位状态 (None: 尚未判断, True: 被补位, False: 满足主/次选)
+        id: player ID
+        mmr: hidden matchmaking rating (integer int)
+        pref_primary: primary preferred lane
+        pref_secondary: secondary preferred lane (optional)
+        assigned_lane: the lane assigned after matching (initially None)
+        is_autofilled: autofill status (None: not yet determined, True: autofilled, False: got primary/secondary)
     """
     id: str
     mmr: int
@@ -49,13 +49,13 @@ class Player:
 
 @dataclass
 class Pool:
-    """Stage 1 抽出的 10 人候选池"""
+    """The 10-player candidate pool extracted in Stage 1"""
     players: List[Player]
 
 
 @dataclass
 class Team:
-    """5 人队伍模型"""
+    """5-player team model"""
     players: List[Player]
     lane_map: Dict[Lane, Player] = field(default_factory=dict)
     autofill_count: int = 0
@@ -63,7 +63,7 @@ class Team:
 
 @dataclass
 class Match:
-    """最终 5v5 对局模型"""
+    """Final 5v5 match model"""
     team_red: Team
     team_blue: Team
     mmr_gap: float = 0.0

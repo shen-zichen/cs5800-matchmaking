@@ -1,14 +1,14 @@
 """
-CS 5800 期末项目：MOBA Matchmaking — 分路匹配模块 (Lane Matching Engine)
+CS 5800 Final Project: MOBA Matchmaking — Lane Matching Engine
 
-本模块实现了纯 Python 手写的 Edmonds-Karp Max-Flow 最大流分路匹配算法。
-主要包含：
-- MatchingGraph: 极简网络流图数据结构
-- solve_lane_matching: 求解 5v5 小队或 10 人候选池 Max-Flow 匹配的主入口
-- handle_autofill: 对未找到主/次偏好的玩家进行分路补位
-- 快捷 API Getter 包装函数族 (get_matching, get_autofill_count, get_max_flow_count 等)
+This module implements a pure-Python, hand-written Edmonds-Karp Max-Flow lane matching algorithm.
+It mainly contains:
+- MatchingGraph: a minimal flow-network graph data structure
+- solve_lane_matching: the main entry point for solving Max-Flow matching on a 5v5 team or a 10-player pool
+- handle_autofill: assigns a fallback lane to players who did not get their primary/secondary preference
+- a family of convenience API getter wrappers (get_matching, get_autofill_count, get_max_flow_count, etc.)
 
-详细说明请参考：docs/lane_matching_api_contract.md 与 docs/lane_matching_draft_Liuyi.md
+For details see: docs/lane_matching_api_contract.md and docs/lane_matching_draft_Liuyi.md
 """
 
 import copy
@@ -17,19 +17,19 @@ import sys
 from collections import deque
 from typing import List, Dict, Tuple, Optional
 
-# 确保项目根目录在 sys.path 中，支持从任何目录直接执行该脚本
+# Ensure the project root is on sys.path so this script can be run directly from any directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from codes.models import Lane, Player
 
-# 定义 5 个标准分路统一常量列表 (从 Lane 枚举自动派生)
+# Define the unified constant list of the 5 standard lanes (derived automatically from the Lane enum)
 ALL_LANES = [lane.value for lane in Lane]
 
 
 class MatchingGraph:
     """
-    匹配图数据结构（纯 Python 原生字典实现）
-    使用 self.edge_dict[u][v] = [cap, flow, is_original] 存储边信息
+    Matching graph data structure (implemented with plain native Python dicts)
+    Uses self.edge_dict[u][v] = [cap, flow, is_original] to store edge info
     """
     def __init__(self):
         self.edge_dict: Dict[str, Dict[str, list]] = {}
@@ -39,130 +39,130 @@ class MatchingGraph:
             self.edge_dict[u] = {}
 
     def add_edge(self, u: str, v: str, cap: int):
-        """加边：正向原始边标记为 True，反向退水边标记为 False"""
+        """Add an edge: forward original edge marked True, reverse residual edge marked False"""
         self.add_node(u)
         self.add_node(v)
-        # 正向原始边: [容量 cap, 初始流量 0, 是否原始边 True]
+        # Forward original edge: [capacity cap, initial flow 0, is_original True]
         self.edge_dict[u][v] = [cap, 0, True]
-        # 反向退水边: [容量 0, 初始流量 0, 是否原始边 False]
+        # Reverse residual edge: [capacity 0, initial flow 0, is_original False]
         self.edge_dict[v][u] = [0, 0, False]
 
     def get_neighbors(self, u: str):
-        """获取节点 u 的所有邻居节点列表 (Python 3.7+ 字典保证 key 的插入顺序)"""
+        """Get the list of all neighbor nodes of node u (Python 3.7+ dicts preserve key insertion order)"""
         return self.edge_dict.get(u, {}).keys()
 
     def get_residual_capacity(self, u: str, v: str) -> int:
-        """获取残量容量"""
+        """Get the residual capacity"""
         cap, flow, is_original = self.edge_dict[u][v]
         if is_original:
-            # 原始正向边：剩余容量 = cap - flow
+            # Forward original edge: remaining capacity = cap - flow
             return cap - flow
         else:
-            # 反向退水边：剩余退水容量 = 正向边的实际流量
+            # Reverse residual edge: remaining residual capacity = the actual flow on the forward edge
             return self.edge_dict[v][u][1]
 
     def augment(self, u: str, v: str, bottleneck: int):
-        """沿 (u, v) 灌水/退水更新流量"""
+        """Push/cancel flow along (u, v) to update the flow"""
         cap, flow, is_original = self.edge_dict[u][v]
         if is_original:
-            # 正向边：流量增加
+            # Forward edge: flow increases
             self.edge_dict[u][v][1] += bottleneck
         else:
-            # 反向边：正向边的流量减少（退水！）
+            # Reverse edge: the forward edge's flow decreases (cancel flow!)
             self.edge_dict[v][u][1] -= bottleneck
 
 
 def reconstruct_path(parent: Dict[str, Optional[str]], s: str, t: str) -> List[str]:
     """
-    从汇点 t 沿着 parent 字典倒推回源点 s
-    返回重构后的路径列表，例如 ['s', 'P1', 'TOP', 't']
+    Trace back from sink t to source s along the parent dict
+    Returns the reconstructed path list, e.g. ['s', 'P1', 'TOP', 't']
     """
     path = []
     curr: Optional[str] = t
     
-    # 只要当前节点不是 None，就一直往上找父节点
+    # As long as the current node is not None, keep tracing up to the parent
     while curr is not None:
         path.append(curr)
-        curr = parent.get(curr)  # 拿到当前节点的父节点
+        curr = parent.get(curr)  # get the parent of the current node
         
-    # Python 列表自带 reverse() 方法，反转列表变成从 s 到 t
+    # Python lists have a built-in reverse() method; reverse to get order from s to t
     path.reverse()
     return path
 
 
 def update_flow_along_path(path: List[str], graph: MatchingGraph) -> int:
     """
-    第一步：算出整条路径上的瓶颈容量 (bottleneck)
-    第二步：沿路径更新每条边的三元组（流量与退水容量）
-    返回：本次增加的流量值 (在二分匹配中等于 1)
+    Step 1: compute the bottleneck capacity along the whole path
+    Step 2: update each edge's triple (flow and residual capacity) along the path
+    Returns: the amount of flow added this time (equals 1 in bipartite matching)
     """
-    # 1. 遍历路径上每对相邻节点 (u, v)，找出最小的剩余残量 (bottleneck)
+    # 1. Iterate over each adjacent pair (u, v) on the path and find the minimum residual capacity (bottleneck)
     bottleneck: int = 999999
     for i in range(len(path) - 1):
         u = path[i]
         v = path[i + 1]
-        c_f = graph.get_residual_capacity(u, v)  # 拿到 (u, v) 当前的剩余残量
+        c_f = graph.get_residual_capacity(u, v)  # get the current residual capacity of (u, v)
         bottleneck = min(bottleneck, c_f)
         
-    # 2. 拿到瓶颈值后，再次遍历路径，更新每条边的三元组状态
+    # 2. With the bottleneck value, iterate the path again and update each edge's triple state
     for i in range(len(path) - 1):
         u = path[i]
         v = path[i + 1]
-        graph.augment(u, v, bottleneck)  # 沿 (u, v) 灌水 bottleneck
+        graph.augment(u, v, bottleneck)  # push bottleneck along (u, v)
         
-    return bottleneck  # 在二分匹配网络中，返回值等于 1
+    return bottleneck  # in a bipartite matching network, the return value equals 1
 
 
 def bfs_find_path(matching_graph: MatchingGraph, s: str, t: str) -> Optional[Dict[str, Optional[str]]]:
     """
-    用 BFS 在残量网络中寻找从 s 到 t 包含边数最少的增广路径
-    返回 parent 字典；若找不到从 s 到 t 的有效通路，返回 None
+    Use BFS to find the augmenting path with the fewest edges from s to t in the residual network
+    Returns the parent dict; returns None if no valid path from s to t is found
     """
-    # 记录每个节点的父节点 (带路人)，起点 s 的父节点为 None
+    # Record each node's parent (the guide); the source s has parent None
     parent: Dict[str, Optional[str]] = {s: None}
     queue = deque([s])
     
-    # 当队列非空且尚未摸到汇点 t 时持续搜图
+    # Keep searching while the queue is non-empty and the sink t has not been reached
     while queue and t not in parent:
         curr = queue.popleft()
         
-        # 遍历 curr 的所有邻居节点 nxt 
+        # Iterate over all neighbor nodes nxt of curr
         for nxt in matching_graph.get_neighbors(curr):
-            # 校验 1: 残量容量必须大于 0 (可以继续流水或退水)
-            # 校验 2: nxt 还没有被访问过 (防止死循环走回头路)
+            # Check 1: residual capacity must be > 0 (can still push or cancel flow)
+            # Check 2: nxt has not been visited yet (prevents infinite loops / backtracking)
             if nxt not in parent and matching_graph.get_residual_capacity(curr, nxt) > 0:
                 parent[nxt] = curr
                 queue.append(nxt)
                 
-    # 检查是否成功找到了到达终点 t 的路径
+    # Check whether a path reaching the sink t was successfully found
     if t in parent:
         return parent
     else:
-        return None  # 残量网络中不存在从 s 到 t 的增广路了
+        return None  # no augmenting path from s to t exists in the residual network anymore
 
 
 def build_matching_graph(players: List[Player], lane_capacity: int = 1) -> MatchingGraph:
     """
-    初始化构建二分匹配流网络图 MatchingGraph
+    Initialize and build the bipartite matching flow network graph MatchingGraph
     """
     matching_graph = MatchingGraph()
     s = "s"
     t = "t"
 
-    # 1. 连源点 s 到所有玩家 (容量为 1)
+    # 1. Connect source s to all players (capacity 1)
     for p in players:
         matching_graph.add_edge(s, p.id, cap=1)
 
-    # 2. 连玩家到偏好分路 (主选必有，次选可选；容量均为 1)
+    # 2. Connect players to preferred lanes (primary always present, secondary optional; both capacity 1)
     for p in players:
         matching_graph.add_edge(p.id, p.pref_primary.value, cap=1)
-        # 防御性校验与日志提示：处理未指定次选分路 (None) 的玩家
+        # Defensive check and log hint: handle players with no secondary lane (None)
         if p.pref_secondary is not None:
             matching_graph.add_edge(p.id, p.pref_secondary.value, cap=1)
         else:
-            print(f"[Info] 玩家 {p.id} 未指定次选分路 (pref_secondary is None)，仅连主选分路边。")
+            print(f"[Info] Player {p.id} has no secondary lane (pref_secondary is None); only the primary lane edge is connected.")
 
-    # 3. 连 5 个分路到 Sink 't' (容量为 lane_capacity: 5人队为 1，10人池为 2)
+    # 3. Connect the 5 lanes to sink 't' (capacity lane_capacity: 1 for a 5-player team, 2 for a 10-player pool)
     for lane_name in ALL_LANES:
         matching_graph.add_edge(lane_name, t, cap=lane_capacity)
 
@@ -171,41 +171,41 @@ def build_matching_graph(players: List[Player], lane_capacity: int = 1) -> Match
 
 def handle_autofill(unmatched_players: List[Player], matching: Dict[str, str], lane_counts: Dict[str, int], lane_capacity: int):
     """
-    对未能在偏好分路匹配到的玩家进行 Autofill 补位填空
+    Autofill players who could not be matched to a preferred lane into open lane slots
     """
     for p in unmatched_players:
-        # 防御性保护：当所有分路均达到容量上限时安全返回 None
+        # Defensive guard: safely return None when all lanes have reached capacity
         open_lane = next((lane_name for lane_name in ALL_LANES if lane_counts[lane_name] < lane_capacity), None)
         if open_lane is None:
             break
         matching[p.id] = open_lane
-        p.assigned_lane = Lane(open_lane)  # 统一赋值为 Lane Enum 对象
+        p.assigned_lane = Lane(open_lane)  # assign uniformly as a Lane enum object
         p.is_autofilled = True
         lane_counts[open_lane] += 1
 
 
 def solve_lane_matching(players: List[Player], lane_capacity: int = 1) -> Tuple[Dict[str, str], int, int]:
     """
-    纯 Python Max-Flow 分路匹配算法唯一主入口
+    The single main entry point of the pure-Python Max-Flow lane matching algorithm
     
-    参数:
-        players: 玩家列表 (5人队 或 10人池)
-        lane_capacity: 每条分路的容量上限 (5人队为 1，10人池为 2)
-    返回:
+    Args:
+        players: list of players (a 5-player team or a 10-player pool)
+        lane_capacity: capacity upper bound per lane (1 for a 5-player team, 2 for a 10-player pool)
+    Returns:
         (matching, autofill_count, max_flow)
-        - matching: 匹配映射字典 {player_id: assigned_lane_name}
-        - autofill_count: 补位人数缺口
-        - max_flow: 成功匹配到偏好分路的总人数
+        - matching: the matching map dict {player_id: assigned_lane_name}
+        - autofill_count: the number of players who had to be autofilled
+        - max_flow: the total number of players successfully matched to a preferred lane
     """
-    # 1. 深拷贝传入的玩家列表，避免修改原始对象
+    # 1. Deep-copy the incoming player list to avoid modifying the original objects
     players_working = copy.deepcopy(players)
 
-    # 2. 调用初始化建图函数
+    # 2. Call the graph initialization function
     matching_graph = build_matching_graph(players_working, lane_capacity)
     s = "s"
     t = "t"
 
-    # 3. Edmonds-Karp 主循环：求解 Max-Flow
+    # 3. Edmonds-Karp main loop: solve Max-Flow
     max_flow = 0
     parent = bfs_find_path(matching_graph, s, t)
     while parent is not None:
@@ -214,13 +214,13 @@ def solve_lane_matching(players: List[Player], lane_capacity: int = 1) -> Tuple[
         max_flow += 1
         parent = bfs_find_path(matching_graph, s, t)
 
-    # 4. 提取匹配结果
+    # 4. Extract the matching result
     matching = {}
     lane_counts = {lane_name: 0 for lane_name in ALL_LANES}
     unmatched_players = []
 
     for p in players_working:
-        # 使用 Python 生成器查找该玩家是否有流量为 1 的匹配分路
+        # Use a Python generator to find whether this player has a matched lane with flow == 1
         matched_lane = next(
             (lane_name for lane_name in ALL_LANES 
              if lane_name in matching_graph.edge_dict.get(p.id, {}) 
@@ -229,13 +229,13 @@ def solve_lane_matching(players: List[Player], lane_capacity: int = 1) -> Tuple[
         )
         if matched_lane:
             matching[p.id] = matched_lane
-            p.assigned_lane = Lane(matched_lane)  # 统一赋值为 Lane Enum 对象
+            p.assigned_lane = Lane(matched_lane)  # assign uniformly as a Lane enum object
             p.is_autofilled = False
             lane_counts[matched_lane] += 1
         else:
             unmatched_players.append(p)
 
-    # 4. 如果 max_flow 未能达到总人数 (即存在分路缺口)，触发 Autofill 补位
+    # 4. If max_flow did not reach the total player count (i.e. there is a lane gap), trigger Autofill
     expected_flow = len(players)
     if max_flow < expected_flow:
         handle_autofill(unmatched_players, matching, lane_counts, lane_capacity)
@@ -243,16 +243,16 @@ def solve_lane_matching(players: List[Player], lane_capacity: int = 1) -> Tuple[
     else:
         autofill_count = 0
 
-    # 统一返回三元组
+    # Return the unified triple
     return matching, autofill_count, max_flow
 
 
-# --- 快捷 API 包装函数族 (API Wrapper Functions) ---
+# --- API Wrapper Functions ---
 
 def get_matching(players: List[Player], lane_capacity: int = 1) -> Dict[str, str]:
     """
-    API 接口：仅获取分路匹配映射字典
-    返回: matching (dict) -> {player_id: assigned_lane_name}
+    API: get only the lane matching map dict
+    Returns: matching (dict) -> {player_id: assigned_lane_name}
     """
     matching, _, _ = solve_lane_matching(players, lane_capacity)
     return matching
@@ -260,8 +260,8 @@ def get_matching(players: List[Player], lane_capacity: int = 1) -> Dict[str, str
 
 def get_autofill_count(players: List[Player], lane_capacity: int = 1) -> int:
     """
-    API 接口：仅获取补位人数缺口
-    返回: autofill_count (int)
+    API: get only the autofill player count
+    Returns: autofill_count (int)
     """
     _, autofill_count, _ = solve_lane_matching(players, lane_capacity)
     return autofill_count
@@ -269,8 +269,8 @@ def get_autofill_count(players: List[Player], lane_capacity: int = 1) -> int:
 
 def get_max_flow_count(players: List[Player], lane_capacity: int = 1) -> int:
     """
-    API 接口：仅获取 Max-Flow 成功匹配偏好的总人数 (用于可行性检查)
-    返回: max_flow_count (int)
+    API: get only the Max-Flow count of players successfully matched to a preference (used for feasibility checks)
+    Returns: max_flow_count (int)
     """
     _, _, max_flow_count = solve_lane_matching(players, lane_capacity)
     return max_flow_count
@@ -278,8 +278,8 @@ def get_max_flow_count(players: List[Player], lane_capacity: int = 1) -> int:
 
 def get_matching_and_autofill_count(players: List[Player], lane_capacity: int = 1) -> Tuple[Dict[str, str], int]:
     """
-    API 接口组合：获取匹配映射字典与补位缺口人数
-    返回: (matching, autofill_count)
+    Combined API: get the matching map dict and the autofill player count
+    Returns: (matching, autofill_count)
     """
     matching, autofill_count, _ = solve_lane_matching(players, lane_capacity)
     return matching, autofill_count
@@ -287,8 +287,8 @@ def get_matching_and_autofill_count(players: List[Player], lane_capacity: int = 
 
 def get_matching_and_max_flow_count(players: List[Player], lane_capacity: int = 1) -> Tuple[Dict[str, str], int]:
     """
-    API 接口组合：获取匹配映射字典与 Max-Flow 流量数值
-    返回: (matching, max_flow_count)
+    Combined API: get the matching map dict and the Max-Flow value
+    Returns: (matching, max_flow_count)
     """
     matching, _, max_flow_count = solve_lane_matching(players, lane_capacity)
     return matching, max_flow_count
