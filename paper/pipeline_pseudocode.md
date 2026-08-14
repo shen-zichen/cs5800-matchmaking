@@ -5,14 +5,6 @@
 > main procedure calling subroutines). This file states **algorithm logic only**;
 > engineering details (defensive copy, import paths, reading the `matching` dict
 > vs. `p.assigned_lane`, etc.) are **excluded** — they are not algorithms.
->
-> **CLRS edition**: `<!-- TODO: standardize on 3rd ed (§26.3, max-flow in Ch 26) or 4th ed (Ch 24) -->`
-> The paper, slides, and both members' pseudocode must agree.
-> **Ownership**: `POOL` / `BALANCE-PARTITION` / `BALANCE-FIRST` by Zichen;
-> `LANE-MATCH` (Stage 2) and `LANE-FIRST` / 32-split by Liuyi.
-> Match the
-> style of this file (CLRS indented).
-
 
 ---
 

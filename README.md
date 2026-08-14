@@ -20,7 +20,7 @@ tradeoff.
   (n = 10), which we solve by brute-force enumeration. The small size does **not**
   change the problem's classification.
 
-## Pipeline — three stages (executed in numbered order)
+## Pipeline — three stages
 
 1. **Pooling** (Stage 1) — sort players by MMR, slide a fixed size-10 window from
    low to high, and use max-flow matching as a feasibility oracle to take the first
