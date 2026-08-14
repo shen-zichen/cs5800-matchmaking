@@ -1,14 +1,14 @@
 """
-CS 5800 期末项目：MOBA Matchmaking — Lane-First Pipeline 单元测试集
+CS 5800 Final Project: MOBA Matchmaking — Lane-First Pipeline unit test suite
 
-测试数据置于：tests/test_data_lane_matching.json
+Test data is located at: tests/test_data_lane_matching.json
 """
 
 import json
 import os
 import sys
 
-# 确保项目根目录在 sys.path 中
+# Ensure the project root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from codes.models import Lane, Player, Pool, Match
@@ -18,13 +18,13 @@ TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), "test_data_lane_matchin
 
 
 def load_test_json() -> dict:
-    """加载 JSON 测试数据"""
+    """Load the JSON test data"""
     with open(TEST_DATA_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def print_returned_match_players(match: Match):
-    """单行打印返回的 Match 对象中 10 名 Player 的全套属性 (一人占用一行)"""
+    """Print all attributes of the 10 Player objects in the returned Match, one player per line"""
     print("\n==================== 👥 Returned Match Player Objects ====================")
     all_players = match.team_red.players + match.team_blue.players
     for p in all_players:
@@ -38,7 +38,7 @@ def print_returned_match_players(match: Match):
 
 
 def print_match_summary(match: Match):
-    """结构化打印 5v5 对局与红蓝队分路详情"""
+    """Structured print of the 5v5 match and the red/blue team lane details"""
     print("\n==================== 🏆 Match Result Overview ====================")
     print(f"📊 Total MMR Gap      : {match.mmr_gap:.2f}")
     print(f"📊 Total Autofill Count: {match.total_autofill}")
@@ -56,27 +56,27 @@ def print_match_summary(match: Match):
                     f"Primary: {player.pref_primary.value:<3} | Secondary: {player.pref_secondary.value if player.pref_secondary else 'None':<3}{autofill_tag}"
                 )
 
-    _print_team("Red Team (红队)", match.team_red, "🔴")
-    _print_team("Blue Team (蓝队)", match.team_blue, "🔵")
+    _print_team("Red Team", match.team_red, "🔴")
+    _print_team("Blue Team", match.team_blue, "🔵")
     print("=====================================================================\n")
 
 
 def test_run_lane_first_with_dict_list():
-    """测试用 JSON 原始 dict 列表直接运行 run_lane_first (触发 Placeholder 转译)"""
+    """Test running run_lane_first directly with a raw JSON dict list (triggers the Placeholder conversion)"""
     print("\n==================== 🚀 Test 1: run_lane_first with dict list input START ====================")
     data = load_test_json()
     raw_10_feasible = data["test_case_3_feasible_10"]
 
-    # 1. 运行 lane-first 管道
+    # 1. Run the lane-first pipeline
     match_result = run_lane_first(raw_10_feasible)
 
-    # 2. 单行打印返回的纯 Player 对象全套属性 (一人占用一行)
+    # 2. Print all attributes of the returned plain Player objects, one player per line
     print_returned_match_players(match_result)
 
-    # 3. 展示返回的 Match 5v5 详细结果
+    # 3. Show the detailed returned Match 5v5 result
     print_match_summary(match_result)
 
-    # 4. 单元测试断言
+    # 4. Unit test assertions
     assert isinstance(match_result, Match)
     assert match_result.total_autofill == 0
     assert len(match_result.team_red.players) == 5
@@ -92,7 +92,7 @@ def test_run_lane_first_with_dict_list():
 
 
 def test_run_lane_first_with_pool():
-    """测试用 Pool 对象运行 run_lane_first"""
+    """Test running run_lane_first with a Pool object"""
     print("==================== 🚀 Test 2: run_lane_first with Pool object input START ====================")
     data = load_test_json()
     players = convert_data_to_players(data["test_case_3_feasible_10"])
@@ -100,7 +100,7 @@ def test_run_lane_first_with_pool():
 
     match_result = run_lane_first(pool)
 
-    # 打印 Match 详细统计结果
+    # Print the detailed Match statistics
     print(f"📦 Input Pool Size         : {len(pool.players)} players")
     print(f"📊 Returned Match MMR Gap  : {match_result.mmr_gap:.2f}")
     print(f"📊 Total Autofill Count    : {match_result.total_autofill}")
@@ -115,7 +115,7 @@ def test_run_lane_first_with_pool():
 
 
 def test_does_not_mutate_caller_pool():
-    """测试 run_lane_first 不会修改主调方的原始 Pool / Player 实例"""
+    """Test that run_lane_first does not modify the caller's original Pool / Player instances"""
     print("==================== 🚀 Test 3: Anti-Mutation (DeepCopy) Check START ====================")
     data = load_test_json()
     players = convert_data_to_players(data["test_case_3_feasible_10"])
@@ -135,12 +135,12 @@ def test_does_not_mutate_caller_pool():
 
 
 def test_solve_32_lane_balancing_directly():
-    """直接测试提取出来的 32 种红蓝拆分组合算法 solve_32_lane_balancing"""
+    """Directly test the extracted 32 red/blue split enumeration algorithm solve_32_lane_balancing"""
     print("==================== 🚀 Test 4: Direct Call to solve_32_lane_balancing START ====================")
     lanes = [Lane.TOP, Lane.JUG, Lane.MID, Lane.ADC, Lane.SUP]
     lane_players = {}
     
-    # 构造简单的测试玩家集: 每个分路两人 MMR 略有出入
+    # Build a simple test player set: two players per lane with slightly different MMR
     # TOP: 1000, 1100 -> diff 100
     # JUG: 1000, 1050 -> diff 50
     # MID: 1000, 1000 -> diff 0
@@ -158,7 +158,7 @@ def test_solve_32_lane_balancing_directly():
     red, blue, gap = solve_32_lane_balancing(lane_players)
     assert len(red.players) == 5
     assert len(blue.players) == 5
-    # 最佳拆分应该把 TOP 1100 和 JUG 1000 放在一队(SUM=5100)，TOP 1000 和 JUG 1050 放在另一队(SUM=5050)，gap = (5100-5050)/5 = 10.0
+    # The best split should put TOP 1100 and JUG 1000 on one team (SUM=5100), and TOP 1000 and JUG 1050 on the other (SUM=5050), gap = (5100-5050)/5 = 10.0
     assert gap == 10.0
     print(f"📊 Direct solve_32_lane_balancing gap result: {gap}")
     print("==================== ✅ Test 4: Direct Call to solve_32_lane_balancing PASSED ====================\n")
@@ -170,4 +170,3 @@ if __name__ == "__main__":
     test_does_not_mutate_caller_pool()
     test_solve_32_lane_balancing_directly()
     print("==================== 🎉 All Lane-First Pipeline Tests Passed Successfully! ====================")
-
